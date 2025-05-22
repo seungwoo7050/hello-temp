@@ -24,11 +24,11 @@ async def read_user_by_username_admin(username):
 	A.roles=list(crud.fake_user_roles_db.get(A.username,set()));return A
 @router.post(_B,response_model=schemas.UserPublic,dependencies=[Depends(require_role(_A))])
 async def assign_role_to_user_admin(username,role_name):
-	B=role_name;A=username
-	if not crud.get_role_by_name(B):raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=f"Role '{B}' not found")
-	C=crud.add_role_to_user(A,B)
-	if not C:raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=f"User '{A}' not found or role already assigned")
-	D=crud.get_user_by_username(A);return D
+	A=role_name;B=username
+	if not crud.get_role_by_name(A):raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=f"Role '{A}' not found")
+	C=crud.add_role_to_user(B,A)
+	if not C:raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=f"User '{B}' not found or role already assigned")
+	D=crud.get_user_by_username(B);return D
 @router.delete(_B,response_model=schemas.UserPublic,dependencies=[Depends(require_role(_A))])
 async def remove_role_from_user_admin(username,role_name):
 	A=username;B=crud.remove_role_from_user(A,role_name)

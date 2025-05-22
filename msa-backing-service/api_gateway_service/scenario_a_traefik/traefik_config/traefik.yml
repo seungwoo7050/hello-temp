@@ -1,0 +1,36 @@
+global:
+  checkNewVersion: true
+  sendAnonymousUsage: false 
+api:
+  dashboard: true 
+  insecure: true 
+entryPoints:
+  web:
+    address: ":80"
+    
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+          permanent: true
+  websecure:
+    address: ":443"
+    http:
+      tls:
+        certResolver: default 
+
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock" 
+    exposedByDefault: false 
+    network: traefik_public_network 
+  file:
+    directory: "/etc/traefik/dynamic_conf" 
+    watch: true 
+
+log:
+  level: INFO 
+
+accessLog:
+  bufferingSize: 100

@@ -1,0 +1,25 @@
+http:
+  routers:
+  services:
+  middlewares:
+    secure-headers:
+      headers:
+        customFrameOptionsValue: "SAMEORIGIN"
+        browserXssFilter: true
+        contentTypeNosniff: true
+        forceSTSHeader: true
+        stsIncludeSubdomains: true
+        stsPreload: true
+        stsSeconds: 31536000
+    rate-limit-example:
+      rateLimit:
+        average: 10
+        burst: 20
+    add-request-header:
+      headers:
+        customRequestHeaders:
+          X-My-Custom-Request-Header: "ValueFromTraefik"
+    add-response-header:
+      headers:
+        customResponseHeaders:
+          X-My-Custom-Response-Header: "ValueFromTraefikResponse"

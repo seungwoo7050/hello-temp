@@ -1,0 +1,68 @@
+version: '3.8'
+services:
+  traefik:
+    image: traefik:v2.11 
+    container_name: msa_traefik_gateway
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "80:80"    
+      - "443:443"  
+      - "8080:8080" 
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro 
+      - ./traefik_config/traefik.yml:/etc/traefik/traefik.yml:ro 
+      - ./traefik_config/dynamic_conf:/etc/traefik/dynamic_conf:ro 
+      - ./certs:/etc/traefik/certs:ro 
+      
+    networks:
+      - traefik_public_network 
+    labels:
+  
+  service_alpha:
+    build: ./sample_backend_service
+    container_name: msa_service_alpha
+    restart: unless-stopped
+    environment:
+      - SERVICE_NAME=ServiceAlpha
+    networks:
+      - traefik_public_network
+    expose: 
+      - "80"
+    labels:
+      - "traefik.enable=true" 
+      - "traefik.docker.network=traefik_public_network" 
+      - "traefik.http.routers.service_alpha_http.rule=Host(`alpha.localhost`) || PathPrefix(`/alpha`)"
+      - "traefik.http.routers.service_alpha_http.entrypoints=web"
+      - "traefik.http.routers.service_alpha_secure.rule=Host(`alpha.localhost`) || PathPrefix(`/alpha`)"
+      - "traefik.http.routers.service_alpha_secure.entrypoints=websecure"
+      - "traefik.http.routers.service_alpha_secure.tls=true" 
+      - "traefik.http.services.service_alpha_svc.loadbalancer.server.port=80" 
+      - "traefik.http.routers.service_alpha_secure.middlewares=alpha-middlewares@docker"
+      - "traefik.http.middlewares.alpha-ratelimit.ratelimit.average=5" 
+      - "traefik.http.middlewares.alpha-ratelimit.ratelimit.burst=10"
+      - "traefik.http.middlewares.alpha-addheader.headers.customRequestHeaders.X-Service-Target=Alpha"
+      - "traefik.http.routers.service_alpha_secure.middlewares=alpha-ratelimit@docker,alpha-addheader@docker,secure-headers@file"
+  
+  service_beta:
+    build: ./sample_backend_service
+    container_name: msa_service_beta
+    restart: unless-stopped
+    environment:
+      - SERVICE_NAME=ServiceBeta
+    networks:
+      - traefik_public_network
+    expose:
+      - "80"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_public_network"
+      - "traefik.http.routers.service_beta_secure.rule=PathPrefix(`/beta`)"
+      - "traefik.http.routers.service_beta_secure.entrypoints=websecure"
+      - "traefik.http.routers.service_beta_secure.tls=true"
+      - "traefik.http.services.service_beta_svc.loadbalancer.server.port=80"
+
+networks:
+  traefik_public_network:
+    name: traefik_public_network 

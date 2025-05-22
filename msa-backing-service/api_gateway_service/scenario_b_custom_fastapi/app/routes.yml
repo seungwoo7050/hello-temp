@@ -1,0 +1,9 @@
+routes:
+  - path_prefix: /service-a
+    target_base_url: http://service_alpha_custom:80
+    methods: ["GET", "POST", "PUT", "DELETE"]
+    requires_auth: true
+  - path_prefix: /service-b
+    target_base_url: http://service_beta_custom:80
+    methods: ["GET", "POST"]
+    requires_auth: false

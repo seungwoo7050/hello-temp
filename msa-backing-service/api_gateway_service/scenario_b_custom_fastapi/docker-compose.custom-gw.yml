@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  custom_api_gateway:
+    build:
+      context: . 
+      dockerfile: Dockerfile
+    container_name: msa_custom_gateway
+    restart: unless-stopped
+    ports:
+      - "8443:8000" 
+    volumes:
+      - ./app:/gateway_app/app 
+      - ./certs:/gateway_app/certs:ro 
+    environment:
+      - API_GW_CONFIG_PATH=app/routes.yml
+      
+    networks:
+      - custom_gw_network
+    depends_on: 
+      - service_alpha_custom
+      - service_beta_custom
+  service_alpha_custom:
+    build: ./sample_backend_service 
+    container_name: msa_service_alpha_for_custom_gw
+    restart: unless-stopped
+    environment:
+      - SERVICE_NAME=ServiceAlphaViaCustomGW
+    networks:
+      - custom_gw_network
+    expose:
+      - "80"
+  
+  service_beta_custom:
+    build: ./sample_backend_service
+    container_name: msa_service_beta_for_custom_gw
+    restart: unless-stopped
+    environment:
+      - SERVICE_NAME=ServiceBetaViaCustomGW
+    networks:
+      - custom_gw_network
+    expose:
+      - "80"
+
+networks:
+  custom_gw_network:
+    name: custom_gw_internal_network
