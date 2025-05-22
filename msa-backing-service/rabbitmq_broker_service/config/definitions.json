@@ -1,0 +1,127 @@
+{
+  "rabbit_version": "3.13.0",
+  "users": [
+    {
+      "name": "admin",
+      "password_hash": "YOUR_GENERATED_PASSWORD_HASH",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": "administrator"
+    },
+    {
+      "name": "app_user",
+      "password_hash": "ANOTHER_PASSWORD_HASH",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": ""
+    }
+  ],
+  "vhosts": [
+    {"name": "/"},
+    {"name": "app_vhost1"},
+    {"name": "app_vhost2"}
+  ],
+  "permissions": [
+    {
+      "user": "admin",
+      "vhost": "/",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    },
+    {
+      "user": "app_user",
+      "vhost": "app_vhost1",
+      "configure": "^app_vhost1_.*",
+      "write": ".*",
+      "read": ".*"  
+    }
+  ],
+  "policies": [
+    {
+      "vhost": "app_vhost1",
+      "name": "ha_all_queues",
+      "pattern": ".*",
+      "apply-to": "queues",
+      "definition": {
+        "ha-mode": "all",
+        "ha-sync-mode": "automatic"
+      },
+      "priority": 0
+    },
+    {
+      "vhost": "app_vhost1",
+      "name": "dlx_for_orders_queue",
+      "pattern": "^orders_queue$",
+      "apply-to": "queues",
+      "definition": {
+        "dead-letter-exchange": "dlx_exchange",
+        "dead-letter-routing-key": "orders_dead"
+      },
+      "priority": 10
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "events_exchange",
+      "vhost": "app_vhost1",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "dlx_exchange",
+      "vhost": "app_vhost1",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    }
+  ],
+  "queues": [
+    {
+      "name": "email_notifications_queue",
+      "vhost": "app_vhost1",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+      
+      
+      }
+    },
+    {
+      "name": "dead_letter_queue",
+      "vhost": "app_vhost1",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    }
+  ],
+  "bindings": [
+    {
+      "source": "events_exchange",
+      "vhost": "app_vhost1",
+      "destination": "email_notifications_queue",
+      "destination_type": "queue",
+      "routing_key": "event.user.created",
+      "arguments": {}
+    },
+    {
+      "source": "events_exchange",
+      "vhost": "app_vhost1",
+      "destination": "email_notifications_queue",
+      "destination_type": "queue",
+      "routing_key": "event.order.placed",
+      "arguments": {}
+    },
+    {
+      "source": "dlx_exchange",
+      "vhost": "app_vhost1",
+      "destination": "dead_letter_queue",
+      "destination_type": "queue",
+      "routing_key": "orders_dead",
+      "arguments": {}
+    }
+  ]
+}
