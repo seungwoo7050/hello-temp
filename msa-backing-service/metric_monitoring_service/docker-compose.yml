@@ -1,0 +1,106 @@
+version: '3.8'
+
+name: msa_monitoring_stack
+networks:
+  monitoring_internal_network:
+    driver: bridge
+    name: monitoring_stack_internal_net
+volumes:
+  prometheus_data:
+    name: msa_prometheus_data
+  grafana_data:
+    name: msa_grafana_data
+  alertmanager_data:
+    name: msa_alertmanager_data
+
+services:
+  prometheus:
+    build:
+      context: .
+      dockerfile: Dockerfile.prometheus
+    container_name: msa_prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    volumes:
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - monitoring_internal_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  alertmanager:
+    build:
+      context: .
+      dockerfile: Dockerfile.alertmanager
+    container_name: msa_alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/config.yml'
+      - '--storage.path=/alertmanager'
+    volumes:
+     
+      - alertmanager_data:/alertmanager
+    ports:
+      - "9093:9093"
+    networks:
+      - monitoring_internal_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9093/-/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  grafana:
+    image: grafana/grafana-oss:10.4.2
+    container_name: msa_grafana
+    volumes:
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=grafana
+      - GF_DASHBOARDS_FILES_PATH=/etc/grafana/provisioning/dashboards
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+     
+    networks:
+      - monitoring_internal_network
+    restart: unless-stopped
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  example_fastapi_app:
+    build:
+      context: ./example_fastapi_app
+      dockerfile: Dockerfile
+    container_name: msa_example_fastapi_app
+    ports:
+      - "8008:8000"
+    networks:
+      - monitoring_internal_network
+     
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

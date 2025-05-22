@@ -1,0 +1,146 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:14-alpine
+    container_name: temporal_postgres
+    ports:
+      - "5432:5432" 
+    environment:
+      - POSTGRES_USER=temporal
+      - POSTGRES_PASSWORD=temporal
+      - POSTGRES_DB=temporal
+    volumes:
+      - temporal_postgres_data:/var/lib/postgresql/data
+    networks:
+      - temporal_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal -d temporal"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  temporal-admin-tools:
+    image: temporalio/admin-tools:1.23 
+    container_name: temporal_admin_tools
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - DB=postgresql
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=temporal
+      - POSTGRES_HOST=postgres
+      - POSTGRES_SEEDS=postgres 
+      - DBNAME=temporal 
+    networks:
+      - temporal_network
+  temporal-history:
+    image: temporalio/history:1.23 
+    container_name: temporal_history
+    ports:
+      - "7234:7234"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      temporal-admin-tools: 
+        condition: service_started 
+    environment:
+      - SERVICES=history
+      - TEMPORAL_STORE_SQL_USER=temporal
+      - TEMPORAL_STORE_SQL_PASSWORD=temporal
+      - TEMPORAL_STORE_SQL_HOST=postgres
+      - TEMPORAL_STORE_SQL_PORT=5432
+      - TEMPORAL_STORE_SQL_PLUGIN_NAME=postgres
+      - TEMPORAL_STORE_SQL_DATABASE_NAME=temporal
+      - TEMPORAL_VISIBILITY_STORE_SQL_USER=temporal
+      - TEMPORAL_VISIBILITY_STORE_SQL_PASSWORD=temporal
+      - TEMPORAL_VISIBILITY_STORE_SQL_HOST=postgres
+      - TEMPORAL_VISIBILITY_STORE_SQL_PORT=5432
+      - TEMPORAL_VISIBILITY_STORE_SQL_PLUGIN_NAME=postgres
+      - TEMPORAL_VISIBILITY_STORE_SQL_DATABASE_NAME=temporal_visibility 
+      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development.yaml 
+    networks:
+      - temporal_network
+    restart: always
+
+  temporal-matching:
+    image: temporalio/matching:1.23 
+    container_name: temporal_matching
+    ports:
+      - "7235:7235"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      temporal-admin-tools:
+        condition: service_started
+      temporal-history:
+        condition: service_started 
+    environment:
+      - SERVICES=matching
+      - TEMPORAL_STORE_SQL_USER=temporal
+      - TEMPORAL_STORE_SQL_PASSWORD=temporal
+      - TEMPORAL_STORE_SQL_HOST=postgres
+      - TEMPORAL_STORE_SQL_PORT=5432
+      - TEMPORAL_STORE_SQL_PLUGIN_NAME=postgres
+      - TEMPORAL_STORE_SQL_DATABASE_NAME=temporal
+      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development.yaml
+    networks:
+      - temporal_network
+    restart: always
+
+  temporal-frontend:
+    image: temporalio/frontend:1.23 
+    container_name: temporal_frontend
+    ports:
+      - "7233:7233" 
+    depends_on:
+      postgres:
+        condition: service_healthy
+      temporal-admin-tools:
+        condition: service_started
+      temporal-history:
+        condition: service_started
+      temporal-matching:
+        condition: service_started
+    environment:
+      - SERVICES=frontend
+      - TEMPORAL_STORE_SQL_USER=temporal
+      - TEMPORAL_STORE_SQL_PASSWORD=temporal
+      - TEMPORAL_STORE_SQL_HOST=postgres
+      - TEMPORAL_STORE_SQL_PORT=5432
+      - TEMPORAL_STORE_SQL_PLUGIN_NAME=postgres
+      - TEMPORAL_STORE_SQL_DATABASE_NAME=temporal
+      - TEMPORAL_VISIBILITY_STORE_SQL_USER=temporal
+      - TEMPORAL_VISIBILITY_STORE_SQL_PASSWORD=temporal
+      - TEMPORAL_VISIBILITY_STORE_SQL_HOST=postgres
+      - TEMPORAL_VISIBILITY_STORE_SQL_PORT=5432
+      - TEMPORAL_VISIBILITY_STORE_SQL_PLUGIN_NAME=postgres
+      - TEMPORAL_VISIBILITY_STORE_SQL_DATABASE_NAME=temporal_visibility
+      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development.yaml
+      - TEMPORAL_TLS_FRONTEND_DISABLED=true
+    networks:
+      - temporal_network
+    restart: always
+
+  temporal-web:
+    image: temporalio/web:1.22
+    container_name: temporal_web_ui
+    ports:
+      - "8088:8088"
+    depends_on:
+      - temporal-frontend
+    environment:
+      - TEMPORAL_GRPC_ENDPOINT=temporal-frontend:7233
+      - TEMPORAL_TLS_FRONTEND_DISABLED=true
+    networks:
+      - temporal_network
+    restart: always
+
+volumes:
+  temporal_postgres_data:
+
+networks:
+  temporal_network:
+    driver: bridge

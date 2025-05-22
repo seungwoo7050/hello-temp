@@ -1,0 +1,70 @@
+version: '3.8'
+networks:
+  realtime_internal_network:
+    driver: bridge
+services:
+ 
+  nats_server:
+    image: nats:2.10-alpine
+    container_name: msa_nats_server
+    ports:
+      - "4222:4222" 
+      - "8222:8222" 
+    networks:
+      - realtime_internal_network
+    restart: always
+ 
+  redis_socket_adapter:
+    image: redis:7.2-alpine
+    container_name: msa_redis_socket_adapter
+    ports:
+      - "6380:6379"
+    networks:
+      - realtime_internal_network
+    restart: always
+    volumes:
+      - redis_socket_adapter_data:/data
+ 
+  socketio_server:
+    build:
+      context: ./socketio_server
+      dockerfile: Dockerfile
+    container_name: msa_socketio_server
+    ports:
+      - "3000:3000"
+    depends_on:
+      - nats_server
+      - redis_socket_adapter
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - NATS_URL=nats://nats_server:4222
+      - REDIS_HOST=redis_socket_adapter
+      - REDIS_PORT=6379
+    networks:
+      - realtime_internal_network
+    restart: always
+    volumes:
+      - ./socketio_server:/usr/src/app
+      - /usr/src/app/node_modules
+ 
+  python_service:
+    build:
+      context: ./python_service_example
+      dockerfile: Dockerfile
+    container_name: msa_python_nats_example
+    ports:
+      - "8080:8000"
+    depends_on:
+      - nats_server
+    environment:
+      - NATS_URL=nats://nats_server:4222
+      - PYTHONUNBUFFERED=1
+    networks:
+      - realtime_internal_network
+    restart: always
+    volumes:
+      - ./python_service_example:/app
+
+volumes:
+  redis_socket_adapter_data:

@@ -1,0 +1,4 @@
+FROM prom/prometheus:v2.53.0
+COPY ./prometheus/prometheus.yml /etc/prometheus/prometheus.yml
+COPY ./prometheus/alert.rules.yml /etc/prometheus/alert.rules.yml
+EXPOSE 9090
